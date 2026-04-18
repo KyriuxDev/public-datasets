@@ -1,3 +1,16 @@
+#!/usr/bin/env python3
+"""
+csv_to_postgres.py  -  Migrador universal CSV -> PostgreSQL
+
+Uso:
+    python csv_to_postgres.py archivo.csv [nombre_tabla]
+
+Configuracion:
+    Copia .env.example como .env en la raiz del repositorio y
+    ajusta las variables de conexion antes de ejecutar.
+    Requiere:  pip install psycopg2-binary python-dotenv
+"""
+
 import sys
 import os
 import csv
@@ -5,14 +18,23 @@ import io
 import re
 import unicodedata
 import argparse
+from pathlib import Path
 
-# ─── CONFIGURACIÓN DE CONEXIÓN ────────────────────────────────────────────────
-DB_HOST     = "localhost"
-DB_PORT     = 5432
-DB_NAME     = "potgres"
-DB_USER     = "postgres"
-DB_PASSWORD = "oaxaca.21"
-DB_SCHEMA   = "public"
+# ── Cargar variables de entorno ──────────────────────────────────────────────
+try:
+    from dotenv import load_dotenv
+    # Busca .env primero en la carpeta del script, luego en la raiz del repo
+    load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+    load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
+except ImportError:
+    pass  # Sin python-dotenv se usan las variables del entorno del sistema
+
+DB_HOST     = os.environ.get("DB_HOST",     "localhost")
+DB_PORT     = int(os.environ.get("DB_PORT", 5432))
+DB_NAME     = os.environ.get("DB_NAME",     "postgres")
+DB_USER     = os.environ.get("DB_USER",     "postgres")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
+DB_SCHEMA   = os.environ.get("DB_SCHEMA",   "public")
 # ─────────────────────────────────────────────────────────────────────────────
 
 VACIOS = {"", "-", "n/a", "N/A", "NA", "null", "NULL", "ninguno", "NINGUNO", "nd", "ND"}
@@ -46,7 +68,6 @@ def es_fecha(v: str) -> bool:
 
 
 def inferir_tipo(valores: list) -> str:
-    """Evalúa TODOS los valores no vacíos para decidir el tipo."""
     no_vacios = [v.strip().replace(",", "") for v in valores if v.strip() not in VACIOS]
     if not no_vacios:
         return "TEXT"
@@ -61,9 +82,9 @@ def inferir_tipo(valores: list) -> str:
 
 
 def leer_csv(ruta: str):
-    print(f"\n📂 Leyendo: {ruta}")
+    print(f"\nLeyendo: {ruta}")
     if not os.path.exists(ruta):
-        print(f"✗  Archivo no encontrado: {ruta}")
+        print(f"ERROR: Archivo no encontrado: {ruta}")
         sys.exit(1)
 
     contenido = None
@@ -78,10 +99,10 @@ def leer_csv(ruta: str):
             continue
 
     if contenido is None:
-        print("✗  No se pudo leer el archivo.")
+        print("ERROR: No se pudo leer el archivo.")
         sys.exit(1)
 
-    print(f"   Encoding    : {encoding_usado}")
+    print(f"  Encoding    : {encoding_usado}")
 
     muestra = contenido[:8192]
     try:
@@ -90,13 +111,13 @@ def leer_csv(ruta: str):
     except csv.Error:
         delimitador = ","
 
-    print(f"   Delimitador : {repr(delimitador)}")
+    print(f"  Delimitador : {repr(delimitador)}")
 
     reader = csv.reader(io.StringIO(contenido), delimiter=delimitador)
     filas = list(reader)
 
     if len(filas) < 2:
-        print("✗  El CSV no tiene suficientes filas.")
+        print("ERROR: El CSV no tiene suficientes filas.")
         sys.exit(1)
 
     return filas[0], filas[1:]
@@ -107,23 +128,22 @@ def analizar(encabezados: list, datos: list):
     columnas_pg = [normalizar_columna(h, usados) for h in encabezados]
     n = len(columnas_pg)
 
-    print(f"   Analizando tipos en {len(datos):,} filas completas… ", end="", flush=True)
+    print(f"\nAnalizando tipos en {len(datos):,} filas... ", end="", flush=True)
 
-    # Una sola pasada para recolectar todos los valores por columna
     columnas_vals = [[] for _ in range(n)]
     for fila in datos:
         for i in range(n):
             columnas_vals[i].append(fila[i] if i < len(fila) else "")
 
     tipos = [inferir_tipo(vals) for vals in columnas_vals]
-    print("✓")
+    print("listo.")
 
-    print(f"\n📋 {n} columnas detectadas:")
-    print(f"   {'CSV':35} {'PostgreSQL':35} {'Tipo'}")
-    print(f"   {'-'*35} {'-'*35} {'-'*14}")
+    print(f"\n{n} columnas detectadas:")
+    print(f"  {'CSV':35} {'PostgreSQL':35} {'Tipo'}")
+    print(f"  {'-'*35} {'-'*35} {'-'*14}")
     for orig, pg, tipo in zip(encabezados, columnas_pg, tipos):
-        print(f"   {orig[:35]:35} {pg[:35]:35} {tipo}")
-    print(f"\n   Filas de datos: {len(datos):,}")
+        print(f"  {orig[:35]:35} {pg[:35]:35} {tipo}")
+    print(f"\n  Filas de datos: {len(datos):,}")
 
     return columnas_pg, tipos
 
@@ -133,10 +153,10 @@ def migrar(tabla: str, columnas_pg: list, tipos: list, datos: list):
         import psycopg2
         import psycopg2.extras
     except ImportError:
-        print("\n✗  Falta psycopg2.  Instala con:  pip install psycopg2-binary")
+        print("\nERROR: Falta psycopg2. Instala con: pip install psycopg2-binary")
         sys.exit(1)
 
-    print(f"\n🔌 Conectando a {DB_HOST}:{DB_PORT}/{DB_NAME}…")
+    print(f"\nConectando a {DB_HOST}:{DB_PORT}/{DB_NAME}...")
     conn = psycopg2.connect(
         host=DB_HOST, port=DB_PORT, dbname=DB_NAME,
         user=DB_USER, password=DB_PASSWORD,
@@ -156,10 +176,9 @@ CREATE TABLE IF NOT EXISTS {tabla_fq} (
     _cargado_en TIMESTAMPTZ DEFAULT NOW()
 );
 """
-    print(f"🏗  Creando tabla {tabla_fq}…")
+    print(f"Creando tabla {tabla_fq}...")
     cur.execute(ddl)
 
-    # Índices automáticos en columnas comunes
     candidatos = {
         "id", "clave", "cve_ent", "cve_mun", "cve_loc",
         "entidad", "municipio", "estado", "anio", "ano",
@@ -194,7 +213,7 @@ CREATE TABLE IF NOT EXISTS {tabla_fq} (
     valores_ph = ", ".join(["%s"] * len(columnas_pg))
     sql = f"INSERT INTO {tabla_fq} ({cols_sql}) VALUES ({valores_ph})"
 
-    print(f"⬆  Insertando {len(datos):,} filas (lotes de {LOTE:,})…")
+    print(f"Insertando {len(datos):,} filas (lotes de {LOTE:,})...")
     lote, total = [], 0
 
     for fila in datos:
@@ -202,7 +221,7 @@ CREATE TABLE IF NOT EXISTS {tabla_fq} (
         if len(lote) >= LOTE:
             psycopg2.extras.execute_batch(cur, sql, lote, page_size=LOTE)
             total += len(lote)
-            print(f"   {total:,} / {len(datos):,}", end="\r")
+            print(f"  {total:,} / {len(datos):,}", end="\r")
             lote.clear()
 
     if lote:
@@ -213,7 +232,7 @@ CREATE TABLE IF NOT EXISTS {tabla_fq} (
     cur.close()
     conn.close()
 
-    print(f"\n✅ {total:,} filas insertadas en {tabla_fq}")
+    print(f"\n{total:,} filas insertadas en {tabla_fq}")
 
 
 def nombre_tabla_desde_archivo(ruta: str) -> str:
@@ -225,7 +244,7 @@ def nombre_tabla_desde_archivo(ruta: str) -> str:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Migrador universal CSV → PostgreSQL")
+    parser = argparse.ArgumentParser(description="Migrador universal CSV -> PostgreSQL")
     parser.add_argument("csv",   help="Ruta al archivo CSV")
     parser.add_argument("tabla", nargs="?", default=None,
                         help="Nombre de la tabla destino (opcional)")
@@ -234,7 +253,7 @@ def main():
     tabla = args.tabla or nombre_tabla_desde_archivo(args.csv)
 
     print("=" * 60)
-    print("  csv_to_postgres — Migrador Universal")
+    print("  csv_to_postgres  -  Migrador Universal")
     print("=" * 60)
     print(f"  Archivo : {args.csv}")
     print(f"  Tabla   : {DB_SCHEMA}.{tabla}")
@@ -243,17 +262,16 @@ def main():
     encabezados, datos = leer_csv(args.csv)
     columnas_pg, tipos = analizar(encabezados, datos)
 
-    respuesta = input("\n¿Continuar con la migración? [S/n]: ").strip().lower()
+    respuesta = input("\nContinuar con la migracion? [S/n]: ").strip().lower()
     if respuesta in ("n", "no"):
-        print("Cancelado.")
+        print("Operacion cancelada.")
         sys.exit(0)
 
     migrar(tabla, columnas_pg, tipos, datos)
 
     print(f"""
-💡 Verificar en PostgreSQL:
-   docker exec -it some-postgres psql -U postgres -c \\
-     "SELECT * FROM \\"{DB_SCHEMA}\\".\\"{tabla}\\" LIMIT 5;"
+Para verificar en PostgreSQL:
+  psql -U {DB_USER} -d {DB_NAME} -c "SELECT * FROM \\"{DB_SCHEMA}\\".\\"{tabla}\\" LIMIT 5;"
 """)
 
 

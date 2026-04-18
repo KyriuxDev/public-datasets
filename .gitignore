@@ -1,0 +1,14 @@
+# Variables de entorno con credenciales - nunca subir al repositorio
+.env
+.gitattributes
+
+# Cachés de Python
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
