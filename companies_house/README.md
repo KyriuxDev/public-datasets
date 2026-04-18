@@ -24,7 +24,7 @@ Nota: Este producto se proporciona de forma gratuita y **no cuenta con soporte t
 
 Los datos también pueden presentarse como un **dump de PostgreSQL**, incluyendo la tabla principal:
 
-### Tabla: `company_data`
+### Tabla: 
 
 | Columna                                      | Tipo de Dato | Descripción |
 |---------------------------------------------|-------------|-------------|
