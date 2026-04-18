@@ -13,7 +13,7 @@ Nota: Este producto se proporciona de forma gratuita y **no cuenta con soporte t
 
 ---
 
-## 🔄 Actualización de los Datos
+##  Actualización de los Datos
 
 - La instantánea se actualiza en un plazo de **5 días hábiles** después de finalizar cada mes.
 - El contenido incluye información recopilada **hasta finales del mes anterior**.
@@ -24,7 +24,7 @@ Nota: Este producto se proporciona de forma gratuita y **no cuenta con soporte t
 
 Los datos también pueden presentarse como un **dump de PostgreSQL**, incluyendo la tabla principal:
 
-### Tabla: `company_data`
+### Tabla: 
 
 | Columna                                      | Tipo de Dato | Descripción |
 |---------------------------------------------|-------------|-------------|
