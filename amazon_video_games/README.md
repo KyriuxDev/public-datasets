@@ -9,7 +9,8 @@ Este conjunto de datos contiene el registro histórico del **Top 50 de los produ
 
 ---
 
-##  Diccionario de Datos
+stándar del producto. Si Amazon muestra un rango, representa el precio mínimo. |
+| **`Max_prices`** | `Float` | Precio máximo asignado por el algoritmo de Amazon (si tiene un rango variable). |##  Diccionario de Datos
 
 Cada archivo de esta base de datos incluye las siguientes columnas, detalladas a continuación:
 
@@ -22,8 +23,7 @@ Cada archivo de esta base de datos incluye las siguientes columnas, detalladas a
 | **`Reviews`** | `Int` | Número total de reseñas acumuladas desde que el producto está a la venta. |
 | **`Authors/Company`** | `String` | Autor de la obra (libros/música) o la empresa fabricante del artículo. |
 | **`Edition/Console`** | `String` | Especificación de plataforma para videojuegos (ej. *Xbox One, PS4*), tipo de pasta para libros o formato para música. |
-| **`Price_std_or_min`** | `Float` | Precio estándar del producto. Si Amazon muestra un rango, representa el precio mínimo. |
-| **`Max_prices`** | `Float` | Precio máximo asignado por el algoritmo de Amazon (si tiene un rango variable). |
+| **`Price_std_or_min`** | `Float` | Precio e
 
 ---
 
